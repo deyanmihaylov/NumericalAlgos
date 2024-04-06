@@ -65,7 +65,7 @@ cdef void calc_spline_params(
 @cython.profile(False)
 cdef void func_spline(
     double[:] x,
-    long long[:] ix,
+    long[:] ix,
     double[:] x0,
     double[:] a,
     double[:] b,
@@ -90,13 +90,13 @@ cdef void searchsorted_merge(
     double[:] a,
     double[:] b,
     bint sort_b,
-    long long[:] idx,
+    long[:] idx,
 ):
     cdef:
-        long long[:] ib
-        long long pa = 0
-        long long pb = 0
-        long long len_a = a.size
+        long[:] ib
+        long pa = 0
+        long pb = 0
+        long len_a = a.size
     if sort_b:
         ib = np.argsort(b)
 
@@ -104,7 +104,10 @@ cdef void searchsorted_merge(
         if pa < len_a and a[pa] < (b[ib[pb]] if sort_b else b[pb]):
             pa += 1
         else:
-            idx[pb] = pa
+            if sort_b:
+                idx[ib[pb]] = pa
+            else:
+                idx[pb] = pa
             pb += 1
 
 @cython.boundscheck(False)
@@ -122,7 +125,7 @@ cdef double[:] piece_wise_spline(
 ):
     cdef:
         int n = x.size
-        long long[:] ix = np.empty(n, dtype=np.int64)
+        long[:] ix = np.empty(n, dtype=np.int64)
         double[:] y = np.empty(n)
 
     searchsorted_merge(x0[1 : -1], x, True, ix)
