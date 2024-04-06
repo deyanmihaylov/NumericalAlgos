@@ -88,7 +88,10 @@ def searchsorted_merge(
         if pa < len(a) and a[pa] < (b[ib[pb]] if sort_b else b[pb]):
             pa += 1
         else:
-            idx[pb] = pa
+            if sort_b:
+                idx[ib[pb]] = pa
+            else:
+                idx[pb] = pa
             pb += 1
     return idx
     
