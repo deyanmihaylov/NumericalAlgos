@@ -22,90 +22,127 @@ cdef class CubicSpline:
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.profile(False)
-cdef void calc_spline_params(
+cpdef void method1(
     double[:] x,
     double[:] y,
-    double[:] a_final,
-    double[:] b_final,
-    double[:] c_final,
-    double[:] d_final,
+    double[:] a,
+    double[:] b,
+    double[:] c,
+    double[:] d,
 ):
     cdef:
         int n = x.size - 1
-        double[:] a = np.zeros(n+1)
-        double[:] b = np.zeros(n)
-        double[:] c = np.zeros(n+1)
-        double[:] d = np.zeros(n)
-        double[:] h = np.zeros(n)
-        double[:] h1 = np.zeros(n-1)
-        double[:] h2 = np.zeros(n-1)
-        double[:] h3 = np.zeros(n-1)
-        double[:] f = np.zeros(n-1)
-        int i
-
-    for i in range(n+1):
-        a[i] = y[i]
+        int n2 = 2 * n
+        int n3 = 3 * n
+        int n4 = 4 * n
+        int i, j, k, m, p, q
+        double[:, :] matrix = np.zeros((n4, n4), dtype=np.float64)
+        double[:] rhs = np.zeros(n4, dtype=np.float64)
+        double prev_xcb, prev_xsq, prev_x
 
     for i in range(n):
-        h[i] = x[i+1] - x[i]
+        j = 2 * i
+        k = 4 * i
+        m = j + 1
 
-    for i in range(n-1):
-        h1[i] = h[i]
-        h2[i] = 2 * (h[i+1] + h[i])
-        h3[i] = h[i+1]
-        f[i] = ((a[i+2] - a[i+1]) / h[i+1] - (a[i+1] - a[i]) / h[i]) * 3
+        if i == 0:
+            matrix[0, 0] = x[0] * x[0] * x[0]
+            matrix[0, 1] = x[0] * x[0]
+            matrix[0, 2] = x[0]
+        else:
+            matrix[j, k] = prev_xcb
+            matrix[j, k + 1] = prev_xsq
+            matrix[j, k + 2] = prev_x
+        
+        matrix[j, k + 3] = 1.
+        rhs[j] = y[i]
 
-    cdef double[:] z = tri_diag_solve(h1, h2, h3, f)
+        prev_xcb = x[i+1] * x[i+1] * x[i+1]
+        prev_xsq = x[i+1] * x[i+1]
+        prev_x = x[i+1]
 
-    c[0] = 0.
-    c[n] = 0.
-    
-    for i in range(1, n):
-        c[i] = z[i-1]
+        matrix[m, k] = prev_xcb
+        matrix[m, k + 1] = prev_xsq
+        matrix[m, k + 2] = prev_x
+        matrix[m, k + 3] = 1.
+        rhs[m] = y[i+1]
+
+        if i != n-1:
+            p = n2 + i
+            q = n3 - 1 + i
+
+            matrix[p, k] = 3 * prev_xsq
+            matrix[p, k + 1] = 2 * prev_x
+            matrix[p, k + 2] = 1
+
+            matrix[p, k + 4] = -3 * prev_xsq
+            matrix[p, k + 5] = -2 * prev_x
+            matrix[p, k + 6] = -1
+
+            matrix[q, k] = 6 * prev_x
+            matrix[q, k + 1] = 2
+
+            matrix[q, k + 4] = -6 * prev_x
+            matrix[q, k + 5] = -2
+
+    matrix[n4 - 2, 0] = 6 * x[0]
+    matrix[n4 - 2, 1] = 2
+
+    matrix[n4 - 1, n4 - 4] = 6 * x[n]
+    matrix[n4 - 1, n4 - 3] = 2
+
+    coeffs = np.linalg.solve(matrix, rhs)
 
     for i in range(n):
-        d[i] = (c[i+1] - c[i]) / (3 * h[i])
+        k = 4 * i
+        a[i] = coeffs[k]
+        b[i] = coeffs[k + 1]
+        c[i] = coeffs[k + 2]
+        d[i] = coeffs[k + 3]
 
-    for i in range(n):
-        b[i] = (a[i+1] - a[i]) / h[i] + (2 * c[i+1] + c[i]) / 3 * h[i]
-
-    for i in range(n):
-        a_final[i] = a[i+1]
-        b_final[i] = b[i]
-        c_final[i] = c[i+1]
-        d_final[i] = d[i]
 
 @cython.boundscheck(False)
 @cython.wraparound(True)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.profile(False)
-cdef double[:] tri_diag_solve(
-    double[:] A,
-    double[:] B,
-    double[:] C,
-    double[:] F,
+cdef void calc_spline_params(
+    double[:] x,
+    double[:] y,
+    double[:] a,
+    double[:] b,
+    double[:] c,
+    double[:] d,
 ):
     cdef:
-        int n = B.size
+        int n = x.size - 1
+        double[:] h = np.zeros(n)
+        double[:] alpha = np.empty(n-1)
+        double[:] ell = np.ones(n+1)
+        double[:] mu = np.zeros(n)
+        double[:] z = np.zeros(n+1)
         int i
-        double[:] Bs = np.zeros(n)
-        double[:] Fs = np.zeros(n)
-        double[:] x = np.zeros(n)
 
-    Bs[0] = B[0]
-    Fs[0] = F[0]
+    for i in range(n+1):
+        if i < n:
+            a[i] = y[i+1]
+        h[i] = x[i+1] - x[i]
+        if i != 0:
+            alpha[i-1] = 3 * ((y[i+1] - y[i]) / h[i] - (y[i] - y[i-1]) / h[i-1])
+        if i > 0 and i < n:
+            ell[i] = 2 * (x[i+1] - x[i-1]) - h[i-1] * mu[i-1]
+            mu[i] = h[i] / ell[i]
+            z[i] = (alpha[i-1] - h[i-1] * z[i-1]) / ell[i]
 
+    c[n-1] = 0.
+    for i in range(n-2, -1, -1):
+        c[i] = z[i+1] - mu[i+1] * c[i+1]
+
+    b[0] = (y[1] - y[0]) / h[0] + 2 * c[0] * h[0] / 3
+    d[0] = (c[0] - z[0] + mu[0] * c[0]) / (3 * h[0])
     for i in range(1, n):
-        Bs[i] = B[i] - A[i] / Bs[i - 1] * C[i - 1]
-        Fs[i] = F[i] - A[i] / Bs[i - 1] * Fs[i - 1]
-
-    x[n-1] = Fs[n-1] / Bs[n-1]
-
-    for i in range(n - 2, -1, -1):
-        x[i] = (Fs[i] - C[i] * x[i + 1]) / Bs[i]
-    
-    return x
+        b[i] = (y[i+1] - y[i]) / h[i] + (c[i-1] + 2 * c[i]) * h[i] / 3
+        d[i] = (c[i] - c[i-1]) / (3 * h[i])
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
