@@ -100,6 +100,87 @@ cpdef void method1(
         c[i] = coeffs[k + 2]
         d[i] = coeffs[k + 3]
 
+@cython.boundscheck(False)
+@cython.wraparound(True)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+@cython.profile(False)
+cdef void solve_tridiag(
+    double[:] a,
+    double[:] b,
+    double[:] c,
+    double[:] d,
+    double[:] x,
+):
+    cdef:
+        int n = d.size
+        int i
+        double[:] w = np.empty(n-1)
+        double[:] g = np.empty(n)
+
+    w[0] = c[0] / b[0]
+    g[0] = d[0] / b[0]
+
+    for i in range(1, n-1):
+        w[i] = c[i] / (b[i] - a[i-1] * w[i-1])
+    
+    for i in range(1, n):
+        g[i] = (d[i] - a[i-1] * g[i-1]) / (b[i] - a[i-1] * w[i-1])
+    
+    x[n-1] = g[n-1]
+
+    for i in range(n-1, 0, -1):
+        x[i-1] = g[i-1] - w[i-1] * x[i]
+
+@cython.boundscheck(False)
+@cython.wraparound(True)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+@cython.profile(False)
+cpdef void method2(
+    double[:] x,
+    double[:] y,
+    double[:] a,
+    double[:] b,
+    double[:] c,
+    double[:] d,
+):
+    cdef:
+        int n = x.size
+        int i
+        double[:] mu = np.empty(n-1)
+        double[:] ell = np.empty(n-1)
+        double[:] r = np.empty(n)
+        double[:] m = np.empty(n)
+
+    h = np.diff(x)
+
+    for i in range(0, n-2):
+        mu[i] = h[i] / (h[i] + h[i+1])
+        ell[i+1] = h[i+1] / (h[i] + h[i+1])
+        r[i+1] = 6 * (
+            (y[i+2] - y[i+1]) / (h[i+1] * (x[i+2] - x[i]))
+            - (y[i+1] - y[i]) / (h[i] * (x[i+2] - x[i]))
+        )
+
+    ell[0] = 1.
+    mu[n-2] = 1.
+
+    # r[0] = 2 * (-0.3)
+    # r[n-1] = 2 * 3.3
+
+    r[0] = 6 * ((y[1] - y[0]) / h[0] - 0.2) / h[0]
+    r[n-1] = 6 * (-1. - (y[n-1] - y[n-2]) / h[n-2]) / h[n-2]
+
+    diag = 2 * np.ones(n)
+
+    solve_tridiag(mu, diag, ell, r, m)
+
+    for i in range(n-1):
+        a[i] = (m[i+1] - m[i]) / (6 * h[i])
+        b[i] = m[i] / 2
+        c[i] = (y[i+1] - y[i]) / h[i] - m[i+1] * h[i] / 6 - m[i] * h[i] / 3
+        d[i] = y[i]
 
 @cython.boundscheck(False)
 @cython.wraparound(True)
