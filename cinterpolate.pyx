@@ -204,7 +204,6 @@ cpdef void method2(
 
     for i in range(n-1):
         a[i] = (b[i+1] - b[i]) / (3 * hx[i])
-        # b[i] = r[i]
         c[i] = (y[i+1] - y[i]) / hx[i] - b[i+1] * hx[i] / 3 - b[i] * hx[i] / 1.5
         d[i] = y[i]
 
