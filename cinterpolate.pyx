@@ -164,7 +164,7 @@ cdef void solve_tridiag_reduced(
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.profile(False)
-cpdef void method2(
+cpdef void compute_spline_params(
     double[:] x,
     double[:] y,
     int type_start,
