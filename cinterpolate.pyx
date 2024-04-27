@@ -143,6 +143,8 @@ cdef void solve_tridiag_reduced(
     double[:] x,
     int n,
 ):
+    cdef int i
+
     c[0] = c[0] / 2
     x[0] = x[0] / 2
 
@@ -150,9 +152,12 @@ cdef void solve_tridiag_reduced(
         if i < n-1:
             c[i] = c[i] / (2 - a[i-1] * c[i-1])
         x[i] = (x[i] - a[i-1] * x[i-1]) / (2 - a[i-1] * c[i-1])
-
+    
     for i in range(n-2, -1, -1):
         x[i] -= c[i] * x[i + 1]
+
+    for i in range(n):
+        x[i] = x[i] / 2
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -174,7 +179,6 @@ cpdef void method2(
         double hh
         double[:] μ = np.empty(n-1)
         double[:] λ = np.empty(n-1)
-        double[:] r = np.empty(n)
 
     for i in range(n-1):
         hx[i] = x[i+1] - x[i]
@@ -183,7 +187,9 @@ cpdef void method2(
         hh = x[i+2] - x[i]
         μ[i] = hx[i] / hh
         λ[i+1] = hx[i+1] / hh
-        r[i+1] = 6 * ((y[i+2] - y[i+1]) / hx[i+1] - (y[i+1] - y[i]) / hx[i]) / hh
+        b[i+1] = 6 * (
+            (y[i+2] - y[i+1]) / hx[i+1] - (y[i+1] - y[i]) / hx[i]
+        ) / hh
 
     λ[0] = 1.
     μ[n-2] = 1.
@@ -191,15 +197,15 @@ cpdef void method2(
     # r[0] = 2 * (-0.3)
     # r[n-1] = 2 * 3.3
 
-    r[0] = 6 * ((y[1] - y[0]) / hx[0] - 0.2) / hx[0]
-    r[n-1] = 6 * (-1. - (y[n-1] - y[n-2]) / hx[n-2]) / hx[n-2]
+    b[0] = 6 * ((y[1] - y[0]) / hx[0] - 0.2) / hx[0]
+    b[n-1] = 6 * (-1. - (y[n-1] - y[n-2]) / hx[n-2]) / hx[n-2]
 
-    solve_tridiag_reduced(μ, λ, r, n)
+    solve_tridiag_reduced(μ, λ, b, n)
 
     for i in range(n-1):
-        a[i] = (r[i+1] - r[i]) / (6 * hx[i])
-        b[i] = r[i] / 2
-        c[i] = (y[i+1] - y[i]) / hx[i] - r[i+1] * hx[i] / 6 - r[i] * hx[i] / 3
+        a[i] = (b[i+1] - b[i]) / (3 * hx[i])
+        # b[i] = r[i]
+        c[i] = (y[i+1] - y[i]) / hx[i] - b[i+1] * hx[i] / 3 - b[i] * hx[i] / 1.5
         d[i] = y[i]
 
 @cython.boundscheck(False)
