@@ -4,16 +4,48 @@ cimport numpy as np
 
 from libc.stdio cimport printf
 
+# bc = cython.fused_type(cython.char, cython.float)
+
 
 cdef class CubicSpline:
-    def __cinit__(self, x0, y0):
+    def __cinit__(
+        self,
+        double[:] x0,
+        double[:] y0,
+        bc_type,
+    ):
         self.x0 = x0
-        cdef int n = x0.size - 1
-        self.a = np.zeros(n)
-        self.b = np.zeros(n)
-        self.c = np.zeros(n)
-        self.d = np.zeros(n)
-        calc_spline_params(x0, y0, self.a, self.b, self.c, self.d)
+        self.n = x0.size
+        self.a = np.empty(self.n-1)
+        self.b = np.empty(self.n-1)
+        self.c = np.empty(self.n-1)
+        self.d = np.empty(self.n-1)
+
+        if bc_type == "not-a-knot":
+            pass
+        elif bc_type == "periodic":
+            pass
+        elif bc_type == "clamped":
+            self.type_start = 1
+            self.type_end = 1
+            self.val_start = 0.
+            self.val_end = 0.
+        elif bc_type == "natural":
+            self.type_start = 2
+            self.type_end = 2
+            self.val_start = 0.
+            self.val_end = 0.
+        else:
+            self.type_start = bc_type[0][0]
+            self.type_end = bc_type[1][0]
+            self.val_start = bc_type[0][1]
+            self.val_end = bc_type[1][1]
+        
+        compute_spline_params(
+            x0, y0, self.n,
+            self.type_start, self.val_start, self.type_end, self.val_end,
+            self.a, self.b, self.c, self.d,
+        )
     def __call__(self, x):
         return piece_wise_spline(x, self.x0, self.a, self.b, self.c, self.d)
 
@@ -167,6 +199,7 @@ cdef void solve_tridiag_reduced(
 cpdef void compute_spline_params(
     double[:] x,
     double[:] y,
+    int n,
     int type_start,
     double value_start,
     int type_end,
@@ -177,7 +210,6 @@ cpdef void compute_spline_params(
     double[:] d,
 ):
     cdef:
-        int n = x.size
         int i
         double[:] hx = np.empty(n-1)
         double hh
