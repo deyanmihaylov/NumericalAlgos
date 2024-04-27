@@ -167,6 +167,10 @@ cdef void solve_tridiag_reduced(
 cpdef void method2(
     double[:] x,
     double[:] y,
+    int type_start,
+    double value_start,
+    int type_end,
+    double value_end,
     double[:] a,
     double[:] b,
     double[:] c,
@@ -191,14 +195,19 @@ cpdef void method2(
             (y[i+2] - y[i+1]) / hx[i+1] - (y[i+1] - y[i]) / hx[i]
         ) / hh
 
-    λ[0] = 1.
-    μ[n-2] = 1.
+    if type_start == 1:
+        λ[0] = 1.
+        b[0] = 6 * ((y[1] - y[0]) / hx[0] - value_start) / hx[0]
+    elif type_start == 2:
+        λ[0] = 0.
+        b[0] = 2 * value_start
 
-    # r[0] = 2 * (-0.3)
-    # r[n-1] = 2 * 3.3
-
-    b[0] = 6 * ((y[1] - y[0]) / hx[0] - 0.2) / hx[0]
-    b[n-1] = 6 * (-1. - (y[n-1] - y[n-2]) / hx[n-2]) / hx[n-2]
+    if type_end == 1:
+        μ[n-2] = 1.
+        b[n-1] = 6 * (value_end - (y[n-1] - y[n-2]) / hx[n-2]) / hx[n-2]
+    elif type_end == 2:
+        μ[n-2] = 0.
+        b[n-1] = 2 * value_end
 
     solve_tridiag_reduced(μ, λ, b, n)
 
