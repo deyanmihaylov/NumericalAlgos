@@ -2,10 +2,6 @@ import cython
 import numpy as np
 cimport numpy as np
 
-from libc.stdio cimport printf
-
-# bc = cython.fused_type(cython.char, cython.float)
-
 
 cdef class CubicSpline:
     def __cinit__(
