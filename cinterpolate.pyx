@@ -22,32 +22,44 @@ cdef class CubicSpline:
         self.d = np.empty(self.n-1)
 
         if bc_type == "not-a-knot":
-            pass
+            self.type_start = 3
+            self.type_end = 3
+            self.val_start = 0.
+            self.val_end = 0.
+
+            compute_spline_params_not_a_knot(
+                x0, y0, self.n,
+                self.a, self.b, self.c, self.d,
+            )
         elif bc_type == "periodic":
             pass
-        elif bc_type == "clamped":
-            self.type_start = 1
-            self.type_end = 1
-            self.val_start = 0.
-            self.val_end = 0.
-        elif bc_type == "natural":
-            self.type_start = 2
-            self.type_end = 2
-            self.val_start = 0.
-            self.val_end = 0.
         else:
-            self.type_start = bc_type[0][0]
-            self.type_end = bc_type[1][0]
-            self.val_start = bc_type[0][1]
-            self.val_end = bc_type[1][1]
-        
-        compute_spline_params(
-            x0, y0, self.n,
-            self.type_start, self.val_start, self.type_end, self.val_end,
-            self.a, self.b, self.c, self.d,
-        )
+            if bc_type == "clamped":
+                self.type_start = 1
+                self.type_end = 1
+                self.val_start = 0.
+                self.val_end = 0.
+            elif bc_type == "natural":
+                self.type_start = 2
+                self.type_end = 2
+                self.val_start = 0.
+                self.val_end = 0.
+            else:
+                self.type_start = bc_type[0][0]
+                self.type_end = bc_type[1][0]
+                self.val_start = bc_type[0][1]
+                self.val_end = bc_type[1][1]
+            
+            compute_spline_params(
+                x0, y0, self.n,
+                self.type_start, self.val_start,
+                self.type_end, self.val_end,
+                self.a, self.b, self.c, self.d,
+            )
     def __call__(self, x):
-        return piece_wise_spline(x, self.x0, self.a, self.b, self.c, self.d)
+        return piece_wise_spline(
+            x, self.x0, self.a, self.b, self.c, self.d,
+        )
 
 @cython.boundscheck(False)
 @cython.wraparound(True)
@@ -196,6 +208,33 @@ cdef void solve_tridiag_reduced(
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.profile(False)
+cdef void solve_tridiag_reduced_not_a_knot(
+    double[:] a,
+    double[:] c,
+    double[:] x,
+    int n,
+    double diag_start,
+    double diag_end,
+):
+    cdef int i
+
+    c[0] = c[0] / diag_start
+    x[1] = x[1] / diag_start
+
+    for i in range(1, n-1):
+        c[i] = c[i] / (2 - a[i-1] * c[i-1])
+        x[i+1] = (x[i+1] - a[i-1] * x[i]) / (2 - a[i-1] * c[i-1])
+    
+    x[n] = (x[n] - a[n-2] * x[n-1]) / (diag_end - a[n-2] * c[n-2])
+    
+    for i in range(n-2, -1, -1):
+        x[i+1] -= c[i] * x[i+2]
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+@cython.profile(False)
 cpdef void compute_spline_params(
     double[:] x,
     double[:] y,
@@ -242,6 +281,58 @@ cpdef void compute_spline_params(
         b[n-1] = 2 * value_end
 
     solve_tridiag_reduced(μ, λ, b, n)
+
+    for i in range(n-1):
+        a[i] = (b[i+1] - b[i]) / (3 * hx[i])
+        c[i] = (y[i+1] - y[i]) / hx[i] - b[i+1] * hx[i] / 3 - b[i] * hx[i] / 1.5
+        d[i] = y[i]
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+@cython.profile(False)
+cpdef void compute_spline_params_not_a_knot(
+    double[:] x,
+    double[:] y,
+    int n,
+    double[:] a,
+    double[:] b,
+    double[:] c,
+    double[:] d,
+):
+    cdef:
+        int i
+        double[:] hx = np.empty(n-1)
+        double hh, diag_start, diag_end
+        double[:] μ = np.empty(n-3)
+        double[:] λ = np.empty(n-3)
+
+    for i in range(n-1):
+        hx[i] = x[i+1] - x[i]
+
+    for i in range(1, n-3):
+        hh = x[i+2] - x[i]
+        μ[i-1] = hx[i] / hh
+        λ[i] = hx[i+1] / hh
+
+    for i in range(0, n-2):
+        b[i+1] = 6 * (
+            (y[i+2] - y[i+1]) / hx[i+1] - (y[i+1] - y[i]) / hx[i]
+        ) / (x[i+2] - x[i])
+
+    λ[0] = 1 - hx[0] / hx[1]
+    μ[n-4] = 1 - hx[n-2] / hx[n-3]
+    diag_start = 2 + hx[0] / hx[1]
+    diag_end = 2 + hx[n-2] / hx[n-3]
+
+    solve_tridiag_reduced_not_a_knot(μ, λ, b, n-2, diag_start, diag_end)
+
+    for i in range(1, n-1):
+        b[i] = b[i] / 2
+    
+    b[0] = ((hx[0] + hx[1]) * b[1] - hx[0] * b[2]) / hx[1]
+    b[n-1] = ((hx[n-3] + hx[n-2]) * b[n-2] - hx[n-2] * b[n-3]) / hx[n-3]
 
     for i in range(n-1):
         a[i] = (b[i+1] - b[i]) / (3 * hx[i])
