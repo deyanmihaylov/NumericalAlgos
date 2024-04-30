@@ -231,6 +231,45 @@ cdef void solve_tridiag_reduced_not_a_knot(
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.profile(False)
+cdef void solve_nearly_tridiagonal_reduced(
+    double[:] a,
+    double[:] c,
+    double[:] x,
+    int n,
+):
+    cdef:
+        int i
+        double expr1
+
+    a[0] = a[0] / 2
+    c[0] = c[0] / 2
+    x[0] = x[0] / 2
+    
+    for i in range(1, n-2):
+        expr1 = 2 - a[i] * c[i-1]
+        c[i] = c[i] / expr1
+        x[i] = (x[i] - a[i] * x[i-1]) / expr1
+        a[i] = - a[i] * a[i-1] / expr1
+
+    x[n-2] = (x[n-2] - a[n-2] * x[n-3]) / (2 - a[n-2] * c[n-3])
+    a[n-2] = (c[n-2] - a[n-2] * a[n-3]) / (2 - a[n-2] * c[n-3])
+    
+    for i in range(n-3, -1, -1):
+        x[i] -= c[i] * x[i+1]
+        a[i] -= c[i] * a[i+1]
+
+    x[n-1] = (
+        x[n-1] - a[n-1] * x[n-2] - c[n-1] * x[0]
+    ) / (2 - a[n-1] * a[n-2] - c[n-1] * a[0])
+
+    for i in range(n-2, -1, -1):
+        x[i] -= a[i] * x[n-1]
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+@cython.profile(False)
 cpdef void compute_spline_params(
     double[:] x,
     double[:] y,
