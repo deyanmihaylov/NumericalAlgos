@@ -18,17 +18,15 @@ cdef class CubicSpline:
         self.d = np.empty(self.n-1)
 
         if bc_type == "not-a-knot":
-            self.type_start = 3
-            self.type_end = 3
-            self.val_start = 0.
-            self.val_end = 0.
-
             compute_spline_params_not_a_knot(
                 x0, y0, self.n,
                 self.a, self.b, self.c, self.d,
             )
         elif bc_type == "periodic":
-            pass
+            compute_spline_params_periodic(
+                x0, y0, self.n,
+                self.a, self.b, self.c, self.d,
+            )
         else:
             if bc_type == "clamped":
                 self.type_start = 1
@@ -373,6 +371,59 @@ cpdef void compute_spline_params_not_a_knot(
         a[i] = (b[i+1] - b[i]) / (3 * hx[i])
         c[i] = (y[i+1] - y[i]) / hx[i] - b[i+1] * hx[i] / 3 - b[i] * hx[i] / 1.5
         d[i] = y[i]
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+@cython.profile(False)
+cpdef void compute_spline_params_periodic(
+    double[:] x,
+    double[:] y,
+    int n,
+    double[:] a,
+    double[:] b,
+    double[:] c,
+    double[:] d,
+):
+    cdef:
+        int i
+        double[:] hx = np.empty(n-1)
+        double hh
+        double[:] μ = np.empty(n-1)
+        double[:] λ = np.empty(n-1)
+
+    for i in range(n-1):
+        hx[i] = x[i+1] - x[i]
+
+    for i in range(0, n-2):
+        hh = x[i+2] - x[i]
+        μ[i+1] = hx[i] / hh
+        λ[i+1] = hx[i+1] / hh
+        b[i+1] = 6 * (
+            (y[i+2] - y[i+1]) / hx[i+1] - (y[i+1] - y[i]) / hx[i]
+        ) / hh
+
+    λ[0] = hx[0] / (hx[0] + hx[n-2])
+    λ[n-2] = hx[n-2] / (hx[n-3] + hx[n-2])
+    μ[0] = hx[n-2] / (hx[0] + hx[n-2])
+    b[0] = 6 * (
+        (y[1] - y[0]) / hx[0] - (y[n-1] - y[n-2]) / hx[n-2]
+    ) / (hx[0] + hx[n-2])
+
+    solve_nearly_tridiagonal_reduced(μ, λ, b, n-1)
+
+    for i in range(n-1):
+        b[i] = b[i] / 2
+
+    for i in range(n-2):
+        a[i] = (b[i+1] - b[i]) / (3 * hx[i])
+        c[i] = (y[i+1] - y[i]) / hx[i] - b[i+1] * hx[i] / 3 - b[i] * hx[i] / 1.5
+        d[i] = y[i]
+
+    a[n-2] = (b[0] - b[n-2]) / (3 * hx[n-2])
+    c[n-2] = (y[n-1] - y[n-2]) / hx[n-2] - b[0] * hx[n-2] / 3 - b[n-2] * hx[n-2] / 1.5
+    d[n-2] = y[n-2]
 
 @cython.boundscheck(False)
 @cython.wraparound(True)
