@@ -8,7 +8,7 @@ cdef class CubicSpline:
         self,
         double[:] x0,
         double[:] y0,
-        bc_type,
+        bc_type="not-a-knot",
     ):
         self.x0 = x0
         self.n = x0.size
