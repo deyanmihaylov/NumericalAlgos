@@ -11,7 +11,7 @@ def is_sorted(a):
 # Helper for calculating cubic splines
 @numba.njit(
     [f'f{ii}[:](f{ii}[:], f{ii}[:], f{ii}[:], f{ii}[:])' for ii in (4, 8)],
-    cache = True, fastmath = True, inline = 'always')
+    cache = True, fastmath = False, inline = 'always')
 def tri_diag_solve(A, B, C, F):
     n = B.size
     assert A.ndim == B.ndim == C.ndim == F.ndim == 1 and (
@@ -27,11 +27,11 @@ def tri_diag_solve(A, B, C, F):
     for i in range(n - 2, -1, -1):
         x[i] = (Fs[i] - C[i] * x[i + 1]) / Bs[i]
     return x
-    
+
 # Calculate cubic spline params
 @numba.njit(
     #[f'(f{ii}, f{ii}, f{ii}, f{ii})(f{ii}[:], f{ii}[:])' for ii in (4, 8)],
-    cache = True, fastmath = True, inline = 'always')
+    cache = True, fastmath = False, inline = 'always')
 def calc_spline_params(x, y):
     a = y
     h = np.diff(x)
@@ -92,7 +92,7 @@ def piece_wise_spline(x, x0, a, b, c, d):
 # @numba.generated_jit(nopython=True, cache=True)
 def spline_numba(x0, y0):
     a, b, c, d = calc_spline_params(x0, y0)
-    return lambda x: piece_wise_spline(x, x0, a, b, c, d)
+    return a, b, c, d, lambda x: piece_wise_spline(x, x0, a, b, c, d)
     
 def test():
     import matplotlib.pyplot as plt, scipy.interpolate

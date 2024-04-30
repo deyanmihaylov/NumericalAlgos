@@ -28,7 +28,7 @@ Calculate the parameters a, b, c, d of a natural cubic spline
 @numba.njit(
     # "UniTuple(f8[:], 4)(f8[:], f8[:])",
     cache = True,
-    fastmath = True,
+    fastmath = False,
 )
 def calc_spline_params(
     x,
@@ -46,10 +46,15 @@ def calc_spline_params(
         z[i] = (alpha[i-1] - h[i-1] * z[i-1]) / ell[i]
     for i in range(n-1, -1, -1):
         c[i] = z[i] - mu[i] * c[i+1]
+    
     b = (a[1:] - a[:-1]) / h + (c[:-1] + 2 * c[1:]) * h / 3
     d = np.diff(c) / (3 * h)
-    return a[1:], b, c[1:], d
-    
+
+    b[0] = -3 * a[0] * x[0]
+    b[-1] = -3 * a[-1] * x[-1]
+
+    return a[:-1], b, c[:-1], d
+
 """    
 Calculate the value of a cubic spline value
 """
