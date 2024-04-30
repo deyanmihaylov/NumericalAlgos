@@ -56,121 +56,6 @@ cdef class CubicSpline:
         )
 
 @cython.boundscheck(False)
-@cython.wraparound(True)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-@cython.profile(False)
-cpdef void method1(
-    double[:] x,
-    double[:] y,
-    double[:] a,
-    double[:] b,
-    double[:] c,
-    double[:] d,
-):
-    cdef:
-        int n = x.size - 1
-        int n2 = 2 * n
-        int n3 = 3 * n
-        int n4 = 4 * n
-        int i, j, k, m, p, q
-        double[:, :] matrix = np.zeros((n4, n4), dtype=np.float64)
-        double[:] rhs = np.zeros(n4, dtype=np.float64)
-        double prev_xcb, prev_xsq, prev_x
-
-    for i in range(n):
-        j = 2 * i
-        k = 4 * i
-        m = j + 1
-
-        if i == 0:
-            matrix[0, 0] = x[0] * x[0] * x[0]
-            matrix[0, 1] = x[0] * x[0]
-            matrix[0, 2] = x[0]
-        else:
-            matrix[j, k] = prev_xcb
-            matrix[j, k + 1] = prev_xsq
-            matrix[j, k + 2] = prev_x
-        
-        matrix[j, k + 3] = 1.
-        rhs[j] = y[i]
-
-        prev_xcb = x[i+1] * x[i+1] * x[i+1]
-        prev_xsq = x[i+1] * x[i+1]
-        prev_x = x[i+1]
-
-        matrix[m, k] = prev_xcb
-        matrix[m, k + 1] = prev_xsq
-        matrix[m, k + 2] = prev_x
-        matrix[m, k + 3] = 1.
-        rhs[m] = y[i+1]
-
-        if i != n-1:
-            p = n2 + i
-            q = n3 - 1 + i
-
-            matrix[p, k] = 3 * prev_xsq
-            matrix[p, k + 1] = 2 * prev_x
-            matrix[p, k + 2] = 1
-
-            matrix[p, k + 4] = -3 * prev_xsq
-            matrix[p, k + 5] = -2 * prev_x
-            matrix[p, k + 6] = -1
-
-            matrix[q, k] = 6 * prev_x
-            matrix[q, k + 1] = 2
-
-            matrix[q, k + 4] = -6 * prev_x
-            matrix[q, k + 5] = -2
-
-    matrix[n4 - 2, 0] = 6 * x[0]
-    matrix[n4 - 2, 1] = 2
-
-    matrix[n4 - 1, n4 - 4] = 6 * x[n]
-    matrix[n4 - 1, n4 - 3] = 2
-
-    coeffs = np.linalg.solve(matrix, rhs)
-
-    for i in range(n):
-        k = 4 * i
-        a[i] = coeffs[k]
-        b[i] = coeffs[k + 1]
-        c[i] = coeffs[k + 2]
-        d[i] = coeffs[k + 3]
-
-@cython.boundscheck(False)
-@cython.wraparound(True)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-@cython.profile(False)
-cdef void solve_tridiag(
-    double[:] a,
-    double[:] b,
-    double[:] c,
-    double[:] d,
-    double[:] x,
-):
-    cdef:
-        int n = d.size
-        int i
-        double[:] w = np.empty(n-1)
-        double[:] g = np.empty(n)
-
-    w[0] = c[0] / b[0]
-    g[0] = d[0] / b[0]
-
-    for i in range(1, n-1):
-        w[i] = c[i] / (b[i] - a[i-1] * w[i-1])
-    
-    for i in range(1, n):
-        g[i] = (d[i] - a[i-1] * g[i-1]) / (b[i] - a[i-1] * w[i-1])
-    
-    x[n-1] = g[n-1]
-
-    for i in range(n-1, 0, -1):
-        x[i-1] = g[i-1] - w[i-1] * x[i]
-
-@cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
@@ -268,7 +153,7 @@ cdef void solve_nearly_tridiagonal_reduced(
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.profile(False)
-cpdef void compute_spline_params(
+cdef void compute_spline_params(
     double[:] x,
     double[:] y,
     int n,
@@ -325,7 +210,7 @@ cpdef void compute_spline_params(
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.profile(False)
-cpdef void compute_spline_params_not_a_knot(
+cdef void compute_spline_params_not_a_knot(
     double[:] x,
     double[:] y,
     int n,
@@ -377,7 +262,7 @@ cpdef void compute_spline_params_not_a_knot(
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.profile(False)
-cpdef void compute_spline_params_periodic(
+cdef void compute_spline_params_periodic(
     double[:] x,
     double[:] y,
     int n,
@@ -541,3 +426,118 @@ cdef double[:] piece_wise_spline(
     searchsorted_merge(x0[1 : -1], x, True, ix)
     func_spline(x, ix, x0, a, b, c, d, y)
     return y
+
+@cython.boundscheck(False)
+@cython.wraparound(True)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+@cython.profile(False)
+cdef void solve_tridiag(
+    double[:] a,
+    double[:] b,
+    double[:] c,
+    double[:] d,
+    double[:] x,
+):
+    cdef:
+        int n = d.size
+        int i
+        double[:] w = np.empty(n-1)
+        double[:] g = np.empty(n)
+
+    w[0] = c[0] / b[0]
+    g[0] = d[0] / b[0]
+
+    for i in range(1, n-1):
+        w[i] = c[i] / (b[i] - a[i-1] * w[i-1])
+    
+    for i in range(1, n):
+        g[i] = (d[i] - a[i-1] * g[i-1]) / (b[i] - a[i-1] * w[i-1])
+    
+    x[n-1] = g[n-1]
+
+    for i in range(n-1, 0, -1):
+        x[i-1] = g[i-1] - w[i-1] * x[i]
+
+@cython.boundscheck(False)
+@cython.wraparound(True)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+@cython.profile(False)
+cpdef void method1(
+    double[:] x,
+    double[:] y,
+    double[:] a,
+    double[:] b,
+    double[:] c,
+    double[:] d,
+):
+    cdef:
+        int n = x.size - 1
+        int n2 = 2 * n
+        int n3 = 3 * n
+        int n4 = 4 * n
+        int i, j, k, m, p, q
+        double[:, :] matrix = np.zeros((n4, n4), dtype=np.float64)
+        double[:] rhs = np.zeros(n4, dtype=np.float64)
+        double prev_xcb, prev_xsq, prev_x
+
+    for i in range(n):
+        j = 2 * i
+        k = 4 * i
+        m = j + 1
+
+        if i == 0:
+            matrix[0, 0] = x[0] * x[0] * x[0]
+            matrix[0, 1] = x[0] * x[0]
+            matrix[0, 2] = x[0]
+        else:
+            matrix[j, k] = prev_xcb
+            matrix[j, k + 1] = prev_xsq
+            matrix[j, k + 2] = prev_x
+        
+        matrix[j, k + 3] = 1.
+        rhs[j] = y[i]
+
+        prev_xcb = x[i+1] * x[i+1] * x[i+1]
+        prev_xsq = x[i+1] * x[i+1]
+        prev_x = x[i+1]
+
+        matrix[m, k] = prev_xcb
+        matrix[m, k + 1] = prev_xsq
+        matrix[m, k + 2] = prev_x
+        matrix[m, k + 3] = 1.
+        rhs[m] = y[i+1]
+
+        if i != n-1:
+            p = n2 + i
+            q = n3 - 1 + i
+
+            matrix[p, k] = 3 * prev_xsq
+            matrix[p, k + 1] = 2 * prev_x
+            matrix[p, k + 2] = 1
+
+            matrix[p, k + 4] = -3 * prev_xsq
+            matrix[p, k + 5] = -2 * prev_x
+            matrix[p, k + 6] = -1
+
+            matrix[q, k] = 6 * prev_x
+            matrix[q, k + 1] = 2
+
+            matrix[q, k + 4] = -6 * prev_x
+            matrix[q, k + 5] = -2
+
+    matrix[n4 - 2, 0] = 6 * x[0]
+    matrix[n4 - 2, 1] = 2
+
+    matrix[n4 - 1, n4 - 4] = 6 * x[n]
+    matrix[n4 - 1, n4 - 3] = 2
+
+    coeffs = np.linalg.solve(matrix, rhs)
+
+    for i in range(n):
+        k = 4 * i
+        a[i] = coeffs[k]
+        b[i] = coeffs[k + 1]
+        c[i] = coeffs[k + 2]
+        d[i] = coeffs[k + 3]
