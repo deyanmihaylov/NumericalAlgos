@@ -3,7 +3,7 @@ from Cython.Build import cythonize
 import numpy as np
 
 setup(
-    name="CubicSpline",
+    name="NumericalAlgos",
     ext_modules=cythonize([
         "cinterpolate.pyx",
         "cinterpolate.pxd",
