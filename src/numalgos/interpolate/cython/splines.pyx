@@ -379,8 +379,8 @@ cdef void func_spline(
         double dx
 
     for i in range(x.size):
-        dx = x[i] - x0[ix[i] + 1]
-        y[i] = a[ix[i]] + (b[ix[i]] + (c[ix[i]] + d[ix[i]] * dx) * dx) * dx
+        dx = x[i] - x0[ix[i]]
+        y[i] = d[ix[i]] + (c[ix[i]] + (b[ix[i]] + a[ix[i]] * dx) * dx) * dx
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
