@@ -5,8 +5,8 @@ import numpy as np
 setup(
     name="NumericalAlgos",
     ext_modules=cythonize([
-        "cinterpolate.pyx",
-        "cinterpolate.pxd",
+        "src/numalgos/interpolate/cython/splines.pyx",
+        "src/numalgos/interpolate/cython/splines.pxd",
     ],
     compiler_directives={'language_level' : "3"},
     ),
