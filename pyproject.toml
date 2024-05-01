@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "numalgos"
+version = "0.0.1"
+authors = [{
+    name="Deyan Mihaylov",
+    email="d.p.mihaylov@gmail.com",
+},]
+description = "A collection of numerical algorithms"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/deyanmihaylov/NumericalAlgos"
+Issues = "https://github.com/deyanmihaylov/NumericalAlgos/issues"
