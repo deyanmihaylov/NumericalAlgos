@@ -50,10 +50,16 @@ cdef class CubicSpline:
                 self.type_end, self.val_end,
                 self.a, self.b, self.c, self.d,
             )
+
     def __call__(self, x):
-        return piece_wise_spline(
-            x, self.x0, self.a, self.b, self.c, self.d,
-        )
+        scalar_flag = False
+        if np.isscalar(x): scalar_flag = True
+        y = np.array(piece_wise_spline(
+            np.atleast_1d(x), self.x0, self.a, self.b, self.c, self.d,
+        ))
+        if scalar_flag:
+            y = y[0]
+        return y
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
