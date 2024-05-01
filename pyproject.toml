@@ -10,10 +10,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "NumericalAlgos"
 version = "0.0.1"
-authors = [{
-    name="Deyan Mihaylov",
-    email="d.p.mihaylov@gmail.com",
-},]
+authors = [{name="Deyan Mihaylov", email="d.p.mihaylov@gmail.com"},]
 description = "A collection of numerical algorithms"
 readme = "README.md"
 requires-python = ">=3.10"
