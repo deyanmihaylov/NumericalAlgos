@@ -1,1 +1,1 @@
-# CubicSplineInterpolation
+# Numerical algorithms
